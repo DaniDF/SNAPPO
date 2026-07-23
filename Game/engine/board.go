@@ -6,8 +6,9 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strconv"
+	"strings"
 
-	"main/logging"
+	"game/logging"
 )
 
 const (
@@ -22,29 +23,33 @@ const (
 )
 
 type Cell struct {
-	X uint8
-	Y uint8
+	X uint8 `json:"x"`
+	Y uint8 `json:"y"`
 }
 
+// Compares this Cell with c. Returns true if both X and Y are equal.
 func (cell Cell) equals(c Cell) bool {
 	return cell.X == c.X && cell.Y == c.Y
 }
 
+// Generates a string version of this cell.
 func (cell Cell) String() string {
 	return "(" + strconv.Itoa(int(cell.X)) + "," + strconv.Itoa(int(cell.Y)) + ")"
 }
 
 type Board struct {
-	ctx context.Context
+	ctx context.Context `json:"-"`
 
-	grid  [][]uint8
-	apple Cell
-	snake []Cell
+	Grid  [][]uint8 `json:"x"`
+	Apple Cell      `json:"apple"`
+	Snake []Cell    `json:"snake"`
 
-	xSize uint8
-	ySize uint8
+	XSize    uint8 `json:"xMax"`
+	YSize    uint8 `json:"yMax"`
+	Gameover bool  `json:"gameover"`
 }
 
+// Initialise a new Board given X and Y sizes.
 func Init(ctx context.Context, xSize uint8, ySize uint8) Board {
 	grid := make([][]uint8, xSize)
 
@@ -74,62 +79,82 @@ func Init(ctx context.Context, xSize uint8, ySize uint8) Board {
 	return Board{
 		ctx: ctx,
 
-		grid:  grid,
-		apple: apple,
-		snake: snake,
+		Grid:  grid,
+		Apple: apple,
+		Snake: snake,
 
-		xSize: xSize,
-		ySize: ySize,
+		XSize:    xSize,
+		YSize:    ySize,
+		Gameover: false,
 	}
 }
 
 func (board Board) GetXSize() uint8 {
-	return board.xSize
+	return board.XSize
 }
 
 func (board Board) GetYSize() uint8 {
-	return board.ySize
+	return board.YSize
 }
 
 func (board Board) GetApple() Cell {
-	return board.apple
+	return board.Apple
 }
 
 func (board Board) GetSnake() []Cell {
-	return slices.Clone(board.snake) // TODO: this crates a copy of the object but for efficiency consider to return the pointer (unwanted modification)
+	//return slices.Clone(board.Snake) // TODO: this crates a copy of the object but for efficiency consider to return the pointer (unwanted modification)
+	return board.Snake
+}
+
+// Geerates a string version representing the snake.
+func (board Board) GetSnakeString() string {
+	var result strings.Builder
+
+	for _, cell := range board.Snake {
+		result.WriteString(cell.String())
+	}
+
+	return result.String()
 }
 
 func (board Board) GetGrid() [][]uint8 {
-	return board.grid
+	return board.Grid
 }
 
-func (board Board) Move(direction uint8) error {
+/*
+Move snake in the specified direction.
+Allowed directions: engine.UP, engine.DOWN, engine.LEFT, engine.RIGHT.
+Returns an error is the new cell of the snake's head is: out-of-bound, the snake itself (cannibalism).
+*/
+func (board *Board) Move(direction uint8) error {
 	log := board.ctx.Value("logger").(logging.Logger)
 
 	shiftCell := Cell{X: 0, Y: 0}
 
 	switch direction {
 	case UP:
-		shiftCell = Cell{X: board.snake[0].X, Y: board.snake[0].Y + 1}
+		shiftCell = Cell{X: board.Snake[0].X, Y: board.Snake[0].Y + 1}
 
 	case DOWN:
-		if int8(board.snake[0].Y)-1 < 0 {
-			log.Error("[Board] Snake moving out of the board: (" + strconv.Itoa(int(board.snake[0].X)) + "," + strconv.Itoa(int(board.snake[0].Y)-1) + ")")
+		if int(board.Snake[0].Y)-1 < 0 {
+			board.Gameover = true
+			log.Error("[Board] Snake moving out of the board: (" + strconv.Itoa(int(board.Snake[0].X)) + "," + strconv.Itoa(int(board.Snake[0].Y)-1) + ")")
 			return errors.New("New cell out of bound")
 		}
 
-		shiftCell = Cell{X: board.snake[0].X, Y: board.snake[0].Y - 1}
+		shiftCell = Cell{X: board.Snake[0].X, Y: board.Snake[0].Y - 1}
 
 	case LEFT:
-		if int8(board.snake[0].X)-1 < 0 {
-			log.Error("[Board] Snake moving out of the board: (" + strconv.Itoa(int(board.snake[0].X)-1) + "," + strconv.Itoa(int(board.snake[0].Y)) + ")")
+		if int(board.Snake[0].X)-1 < 0 {
+			board.Gameover = true
+			log.Error("[Board] Snake moving out of the board: (" + strconv.Itoa(int(board.Snake[0].X)-1) + "," + strconv.Itoa(int(board.Snake[0].Y)) + ")")
 			return errors.New("New cell out of bound")
 		}
 
-		shiftCell = Cell{X: board.snake[0].X - 1, Y: board.snake[0].Y}
+		shiftCell = Cell{X: board.Snake[0].X - 1, Y: board.Snake[0].Y}
 
 	case RIGHT:
-		shiftCell = Cell{X: board.snake[0].X + 1, Y: board.snake[0].Y}
+		shiftCell = Cell{X: board.Snake[0].X + 1, Y: board.Snake[0].Y}
 
 	default:
 		log.Error("[Board] Unsupported move: " + strconv.Itoa(int(direction)))
@@ -138,6 +163,7 @@ func (board Board) Move(direction uint8) error {
 
 	err := board.validateMove(shiftCell)
 	if err != nil {
+		board.Gameover = true
 		log.Error("[Board] Next position not valid: " + shiftCell.String() + " - " + err.Error())
 		return err
 	}
@@ -147,35 +173,46 @@ func (board Board) Move(direction uint8) error {
 	return nil
 }
 
+// Checks if moving the snake's head into the defined cell is valid or not
 func (board Board) validateMove(cell Cell) error {
-	if cell.X >= board.xSize || cell.Y >= board.ySize {
+	if board.Gameover {
+		return errors.New("Game is already over")
+	} else if cell.X >= board.XSize || cell.Y >= board.YSize {
 		return errors.New("New cell out of bound")
-	} else if slices.Contains(board.snake, cell) {
+	} else if slices.Contains(board.Snake, cell) {
 		return errors.New("New cell is cannibalism")
 	}
 
 	return nil
 }
 
-func (board Board) shiftSnakeToCell(cell Cell) {
-	if cell.equals(board.apple) {
-		board.snake = append(board.snake, board.snake[len(board.snake)-1])
-		board.apple = generateNewApple(board.snake, board.xSize, board.ySize)
+// Moves the snake's head into the provided cell and the rest of the snake accordingly
+func (board *Board) shiftSnakeToCell(cell Cell) {
+	log := board.ctx.Value("logger").(logging.Logger)
+
+	if cell.equals(board.Apple) {
+		board.Snake = append(board.Snake, board.Snake[len(board.Snake)-1])
+		log.Info("[Board] Snake ate an apple, new snake length " + strconv.Itoa(len(board.Snake)))
+
+		board.Apple = generateNewApple(board.Snake, board.XSize, board.XSize)
+		board.Grid[board.Apple.X][board.Apple.Y] = APPLE
+		log.Info("[Board] Generated new apple at " + board.Apple.String())
 	}
 
 	shiftPosition := cell
-	for i := range len(board.snake) {
-		temp := board.snake[i]
+	for i := range len(board.Snake) {
+		temp := board.Snake[i]
 
-		board.snake[i].X = shiftPosition.X
-		board.snake[i].Y = shiftPosition.Y
-		board.grid[shiftPosition.X][shiftPosition.Y] = SNAKE
+		board.Snake[i].X = shiftPosition.X
+		board.Snake[i].Y = shiftPosition.Y
+		board.Grid[shiftPosition.X][shiftPosition.Y] = SNAKE
 
 		shiftPosition = temp
-		board.grid[shiftPosition.X][shiftPosition.Y] = EMPTY
+		board.Grid[shiftPosition.X][shiftPosition.Y] = EMPTY
 	}
 }
 
+// Generates a new valid apple given the grid size and the snake position
 func generateNewApple(snake []Cell, xSize uint8, ySize uint8) Cell { // TODO Choose only among valid cells
 	apple := Cell{X: snake[0].X, Y: snake[0].Y}
 
@@ -187,6 +224,10 @@ func generateNewApple(snake []Cell, xSize uint8, ySize uint8) Cell { // TODO Cho
 	return apple
 }
 
+/*
+Checks if the provided snake is valid.
+Eg. No invalid turns, no 45° turns
+*/
 func isSnakeValid(snake []Cell, xSize uint8, ySize uint8) bool {
 	result := true
 
