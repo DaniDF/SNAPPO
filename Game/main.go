@@ -202,7 +202,7 @@ func saveHistory(ctx context.Context, history history.History) error {
 		return err
 	}
 
-	err = os.WriteFile(filepath.Join(historyDir, strconv.Itoa(int(time.Now().UnixMicro()))), historyJ, 0644)
+	err = os.WriteFile(filepath.Join(historyDir, strconv.Itoa(int(time.Now().UnixMicro()))+".json"), historyJ, 0644)
 	if err != nil {
 		log.Error("[Main-conn] Error while writing history file")
 		return err
