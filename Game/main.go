@@ -28,7 +28,7 @@ type Args struct {
 
 	UI bool `arg:"--ui" default:"false" help:"Enable the terminal UI"`
 
-	socket string `arg:"--socket" default:"" help:"Define custom socket"`
+	Socket string `arg:"--socket" default:"" help:"Define custom socket"`
 
 	HistoryDir   string `arg:"-H,--history-path" default:"" help:"Define history directory and implicitly enables this function (disabled otherwise)"`
 	DebugEnabled bool   `arg:"-d,--debug" default:"false" help:"Enable debug logging"`
@@ -58,8 +58,8 @@ func main() {
 	}
 
 	socketPath := DEFAULT_SOCKET
-	if len(args.socket) > 0 {
-		socketPath = args.socket
+	if len(args.Socket) > 0 {
+		socketPath = args.Socket
 	}
 
 	err := os.Remove(socketPath)

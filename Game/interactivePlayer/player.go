@@ -18,7 +18,7 @@ const (
 )
 
 type Args struct {
-	socket string `arg:"--socket" default:"" help:"Define custom socket"`
+	Socket string `arg:"--socket" default:"" help:"Define custom socket"`
 }
 
 func main() {
@@ -26,8 +26,8 @@ func main() {
 	arg.MustParse(&args)
 
 	socketPath := DEFAULT_SOCKET
-	if len(args.socket) > 0 {
-		socketPath = args.socket
+	if len(args.Socket) > 0 {
+		socketPath = args.Socket
 	}
 
 	conn, err := net.Dial("unix", socketPath)
