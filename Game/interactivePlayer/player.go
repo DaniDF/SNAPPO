@@ -18,8 +18,6 @@ const (
 )
 
 type Args struct {
-	NoUI bool `arg:"--no-ui" default:"true" help:"Enable the terminal UI"`
-
 	socket string `arg:"--socket" default:"" help:"Define custom socket"`
 }
 

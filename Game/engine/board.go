@@ -40,7 +40,7 @@ func (cell Cell) String() string {
 type Board struct {
 	ctx context.Context `json:"-"`
 
-	Grid  [][]uint8 `json:"x"`
+	Grid  [][]uint8 `json:"grid"`
 	Apple Cell      `json:"apple"`
 	Snake []Cell    `json:"snake"`
 
@@ -89,21 +89,37 @@ func Init(ctx context.Context, xSize uint8, ySize uint8) Board {
 	}
 }
 
-func (board Board) GetXSize() uint8 {
-	return board.XSize
+func (board Board) getGrid() [][]uint8 {
+	if board.Grid == nil {
+		return nil
+	}
+
+	var result = make([][]uint8, len(board.Grid))
+	for i := range board.Grid {
+		result[i] = slices.Clone(board.Grid[i])
+	}
+
+	return result
 }
 
-func (board Board) GetYSize() uint8 {
-	return board.YSize
-}
-
-func (board Board) GetApple() Cell {
+func (board Board) getApple() Cell {
 	return board.Apple
 }
 
-func (board Board) GetSnake() []Cell {
-	//return slices.Clone(board.Snake) // TODO: this crates a copy of the object but for efficiency consider to return the pointer (unwanted modification)
-	return board.Snake
+func (board Board) getSnake() []Cell {
+	return slices.Clone(board.Snake)
+}
+
+func (board Board) getXSize() uint8 {
+	return board.XSize
+}
+
+func (board Board) getYSize() uint8 {
+	return board.YSize
+}
+
+func (board Board) getGameover() bool {
+	return board.Gameover
 }
 
 // Geerates a string version representing the snake.
@@ -117,8 +133,18 @@ func (board Board) GetSnakeString() string {
 	return result.String()
 }
 
-func (board Board) GetGrid() [][]uint8 {
-	return board.Grid
+func (board Board) Clone() Board {
+	return Board{
+		ctx: nil,
+
+		Grid:  board.getGrid(),
+		Apple: board.getApple(),
+		Snake: board.getSnake(),
+
+		XSize:    board.getXSize(),
+		YSize:    board.getYSize(),
+		Gameover: board.getGameover(),
+	}
 }
 
 /*
@@ -192,11 +218,11 @@ func (board *Board) shiftSnakeToCell(cell Cell) {
 
 	if cell.equals(board.Apple) {
 		board.Snake = append(board.Snake, board.Snake[len(board.Snake)-1])
-		log.Info("[Board] Snake ate an apple, new snake length " + strconv.Itoa(len(board.Snake)))
+		log.Debug("[Board] Snake ate an apple, new snake length " + strconv.Itoa(len(board.Snake)))
 
 		board.Apple = generateNewApple(board.Snake, board.XSize, board.XSize)
 		board.Grid[board.Apple.X][board.Apple.Y] = APPLE
-		log.Info("[Board] Generated new apple at " + board.Apple.String())
+		log.Debug("[Board] Generated new apple at " + board.Apple.String())
 	}
 
 	shiftPosition := cell

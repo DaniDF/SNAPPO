@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"game/engine"
+	"game/history"
 	"game/logging"
 	tui "game/ui/TUI"
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/alexflint/go-arg"
 )
@@ -27,25 +30,37 @@ type Args struct {
 
 	socket string `arg:"--socket" default:"" help:"Define custom socket"`
 
-	DebugEnabled bool `arg:"-d,--debug" default:"false" help:"Enable debug logging"`
+	HistoryDir   string `arg:"-H,--history-path" default:"" help:"Define history directory and implicitly enables this function (disabled otherwise)"`
+	DebugEnabled bool   `arg:"-d,--debug" default:"false" help:"Enable debug logging"`
 }
 
 func main() {
 	var args Args
 	arg.MustParse(&args)
 
-	debugLevel := slog.LevelInfo // TODO
+	debugLevel := slog.LevelInfo
 	if args.DebugEnabled {
 		debugLevel = slog.LevelDebug
+	}
+
+	ctx := context.Background()
+	ctx, log := logging.Init(ctx, debugLevel)
+
+	historyEnabled := false
+	if len(args.HistoryDir) > 0 {
+		err := os.MkdirAll(args.HistoryDir, 0755)
+		if err != nil {
+			log.Warn("[Main] Error creating history direcory (skipped):" + err.Error())
+		} else {
+			historyEnabled = true
+			ctx = context.WithValue(ctx, "historyDir", args.HistoryDir)
+		}
 	}
 
 	socketPath := DEFAULT_SOCKET
 	if len(args.socket) > 0 {
 		socketPath = args.socket
 	}
-
-	ctx := context.Background()
-	ctx, log := logging.Init(ctx, debugLevel)
 
 	err := os.Remove(socketPath)
 	if err != nil && !os.IsNotExist(err) {
@@ -71,7 +86,7 @@ func main() {
 				return
 			}
 			defer conn.Close()
-			if err := handleConnection(ctx, conn, args.XSize, args.YSize, args.UI); err != nil {
+			if err := handleConnection(ctx, conn, args.XSize, args.YSize, args.UI, historyEnabled); err != nil {
 				log.Error("[Main] Game ended with error: " + err.Error())
 				return
 			}
@@ -79,12 +94,13 @@ func main() {
 	}
 }
 
-func handleConnection(ctx context.Context, conn net.Conn, xSize uint8, ySize uint8, enableUI bool) error {
+func handleConnection(ctx context.Context, conn net.Conn, xSize uint8, ySize uint8, enableUI bool, enableHistory bool) error {
 	log := ctx.Value("logger").(logging.Logger)
 
 	log.Info("[Main-conn] Game started (" + strconv.Itoa(int(xSize)) + "," + strconv.Itoa(int(ySize)) + ")")
 
 	game := engine.Init(ctx, xSize, ySize)
+	history := history.StartHistory(game)
 
 	for !game.Gameover {
 		if enableUI {
@@ -124,12 +140,21 @@ func handleConnection(ctx context.Context, conn net.Conn, xSize uint8, ySize uin
 				err := game.Move(direction)
 				if err != nil {
 					log.Debug("[Main-conn] Invalid move: " + err.Error())
+
 				}
+
+				history.AddRecord(direction, game)
 			}
 		}
 
 		if game.Gameover {
 			log.Info("[Main-conn] GAME OVER")
+			history.Finish()
+			log.Debug("[Main-conn] Game history: " + history.String())
+
+			if enableHistory {
+				saveHistory(ctx, history)
+			}
 
 			gameJ, err := json.Marshal(game)
 			if err != nil {
@@ -165,4 +190,23 @@ func parseMoveDirection(str string) (uint8, error) {
 	}
 
 	return result, nil
+}
+
+func saveHistory(ctx context.Context, history history.History) error {
+	log := ctx.Value("logger").(logging.Logger)
+	historyDir := ctx.Value("historyDir").(string)
+
+	historyJ, err := json.Marshal(history)
+	if err != nil {
+		log.Error("[Main-conn] Error while marshaling history")
+		return err
+	}
+
+	err = os.WriteFile(filepath.Join(historyDir, strconv.Itoa(int(time.Now().UnixMicro()))), historyJ, 0644)
+	if err != nil {
+		log.Error("[Main-conn] Error while writing history file")
+		return err
+	}
+
+	return nil
 }

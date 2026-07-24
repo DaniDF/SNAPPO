@@ -18,21 +18,19 @@ const (
 func RenderBoard(board engine.Board) {
 	fmt.Print("\033[H")
 
-	grid := board.GetGrid()
+	fmt.Println("+" + strings.Repeat("--", int(board.XSize)) + "+")
 
-	fmt.Println("+" + strings.Repeat("--", int(board.GetXSize())) + "+")
-
-	for revY := range board.GetYSize() {
-		y := board.GetYSize() - 1 - revY // Flipped the Y axis
+	for revY := range board.YSize {
+		y := board.YSize - 1 - revY // Flipped the Y axis
 		fmt.Print("|")
 
-		for x := range board.GetXSize() {
-			switch grid[x][y] {
+		for x := range board.XSize {
+			switch board.Grid[x][y] {
 			case engine.APPLE:
 				fmt.Print(yellow + "★" + reset + ".")
 
 			case engine.SNAKE:
-				if board.GetSnake()[0].X == x && board.GetSnake()[0].Y == y {
+				if board.Snake[0].X == x && board.Snake[0].Y == y {
 					fmt.Print(green + "⏺" + reset + ".")
 				} else {
 					fmt.Print(green + "⏹" + reset + ".")
@@ -45,7 +43,7 @@ func RenderBoard(board engine.Board) {
 		fmt.Println("|")
 	}
 
-	fmt.Println("+" + strings.Repeat("--", int(board.GetXSize())) + "+")
+	fmt.Println("+" + strings.Repeat("--", int(board.XSize)) + "+")
 }
 
 // Clears the output
