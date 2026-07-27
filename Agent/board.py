@@ -41,6 +41,9 @@ class Board:
 
         return result + f"\nxSize: {self.xSize}\nySize: {self.ySize}\ngameover: {self.gameover}"
 
+    def get_score(self) -> int:
+        return len(self.snake)
+
 
 def Unmarshal(s: str) -> Board:
     data = json.loads(s)
@@ -69,3 +72,19 @@ class Move(Enum):
 
     def marshal(self) -> str:
         return "{\"direction\": \"" + self.name + "\"}"
+
+def from_int_to_Move(value: int) -> Move:
+    result = None
+
+    if value == 0:
+        result = Move.UP
+    elif value == 1:
+        result = Move.DOWN
+    elif value == 2:
+        result = Move.LEFT
+    elif value == 3:
+        result = Move.RIGHT
+    else:
+        raise Exception("Invadid enum value")
+    
+    return result
