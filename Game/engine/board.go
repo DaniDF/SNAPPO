@@ -61,11 +61,10 @@ func Init(ctx context.Context, xSize uint8, ySize uint8) Board {
 		}
 	}
 
-	snake := []Cell{{X: uint8(rand.IntN(int(xSize))), Y: uint8(rand.IntN(int(ySize)))}, {X: 0, Y: 0}}
-	snake[1].X = snake[0].X
-	snake[1].Y = snake[0].Y
-
+	snake := []Cell{{X: 0, Y: 0}, {X: 0, Y: 0}}
 	for !isSnakeValid(snake, xSize, ySize) {
+		snake[0].X = uint8(rand.IntN(int(xSize)))
+		snake[0].Y = uint8(rand.IntN(int(xSize)))
 		snake[1].X = snake[0].X + uint8(rand.IntN(2)-1)
 		snake[1].Y = snake[0].Y + uint8(rand.IntN(2)-1)
 	}
@@ -190,7 +189,7 @@ func (board *Board) Move(direction uint8) error {
 	err := board.validateMove(shiftCell)
 	if err != nil {
 		board.Gameover = true
-		log.Error("[Board] Next position not valid: " + shiftCell.String() + " - " + err.Error())
+		log.Debug("[Board] Next position not valid: " + shiftCell.String() + " - " + err.Error())
 		return err
 	}
 
