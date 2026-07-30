@@ -1,0 +1,5 @@
+tensorflow
+tensorflow_probability
+tf_keras
+numpy
+typer
