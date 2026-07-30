@@ -23,9 +23,6 @@ const (
 )
 
 type Args struct {
-	XSize uint8 `arg:"-x" default:"20" help:"Sets the width of the board"`
-	YSize uint8 `arg:"-y" default:"20" help:"Sets the heigh of the board"`
-
 	UI bool `arg:"--ui" default:"false" help:"Enable the terminal UI"`
 
 	Socket string `arg:"--socket" default:"" help:"Define custom socket"`
@@ -86,7 +83,7 @@ func main() {
 				return
 			}
 			defer conn.Close()
-			if err := handleConnection(ctx, conn, args.XSize, args.YSize, args.UI, historyEnabled); err != nil {
+			if err := handleConnection(ctx, conn, args.UI, historyEnabled); err != nil {
 				log.Error("[Main] Game ended with error: " + err.Error())
 				return
 			}
@@ -94,8 +91,34 @@ func main() {
 	}
 }
 
-func handleConnection(ctx context.Context, conn net.Conn, xSize uint8, ySize uint8, enableUI bool, enableHistory bool) error {
+func handleConnection(ctx context.Context, conn net.Conn, enableUI bool, enableHistory bool) error {
 	log := ctx.Value("logger").(logging.Logger)
+
+	buffer := make([]byte, 256)
+	n, err := conn.Read(buffer)
+	if err != nil {
+		log.Warn("[Main-conn] Fatal error while reading game configs from socket: " + err.Error())
+		return err
+	}
+	log.Debug("[Main-conn] received: ->" + string(buffer[:n]) + "<-")
+	var gameConfigs map[string]int
+	err = json.Unmarshal(buffer[:n], &gameConfigs)
+	if err != nil {
+		log.Warn("[Main-conn] Fatal error while unmashaling game configs from socket: " + err.Error())
+		return err
+	}
+
+	xValue, xPresent := gameConfigs["xMax"]
+	yValue, yPresent := gameConfigs["yMax"]
+	var xSize uint8
+	var ySize uint8
+	if xPresent && yPresent {
+		xSize = uint8(xValue)
+		ySize = uint8(yValue)
+	} else {
+		log.Warn("[Main-conn] Error size missing; x present: " + strconv.FormatBool(xPresent) + " y present: " + strconv.FormatBool(yPresent))
+		return errors.New("Size missing")
+	}
 
 	log.Info("[Main-conn] Game started (" + strconv.Itoa(int(xSize)) + "," + strconv.Itoa(int(ySize)) + ")")
 
@@ -120,7 +143,6 @@ func handleConnection(ctx context.Context, conn net.Conn, xSize uint8, ySize uin
 			return err
 		}
 
-		buffer := make([]byte, 256)
 		n, err := conn.Read(buffer)
 		if err != nil {
 			log.Warn("[Main-conn] Fatal error while reading from socket: " + err.Error())

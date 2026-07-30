@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	"game/engine"
 	"game/interactivePlayer/utils"
@@ -18,6 +19,9 @@ const (
 )
 
 type Args struct {
+	XSize uint8 `arg:"-x" default:"20" help:"Sets the width of the board"`
+	YSize uint8 `arg:"-y" default:"20" help:"Sets the heigh of the board"`
+
 	Socket string `arg:"--socket" default:"" help:"Define custom socket"`
 }
 
@@ -36,6 +40,13 @@ func main() {
 		os.Exit(-2)
 	}
 	defer conn.Close()
+
+	gameConfigsStr := fmt.Sprintf("{\"xMax\":%s,\"yMax\":%s}", strconv.Itoa(int(args.XSize)), strconv.Itoa(int(args.YSize)))
+	_, err = conn.Write([]byte(gameConfigsStr))
+	if err != nil {
+		fmt.Println("[Main] Error while sending game configs")
+		os.Exit(-3)
+	}
 
 	tui.ClearBoard()
 
