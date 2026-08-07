@@ -9,8 +9,9 @@ class ActorCritic(tf.keras.Model):
         # Defining the actor model
         self.__actor = tf.keras.models.Sequential([
             tf.keras.layers.Input(shape=input_shape, dtype=tf.float32),
-            tf.keras.layers.Dense(64, activation="tanh", dtype=tf.float32),  # TODO Evaluate relu
-            tf.keras.layers.Dense(64, activation="tanh", dtype=tf.float32),
+            tf.keras.layers.Dense(512, activation="relu", dtype=tf.float32),  # TODO Evaluate swish or gelu
+            tf.keras.layers.Dense(256, activation="relu", dtype=tf.float32),
+            tf.keras.layers.Dense(128, activation="relu", dtype=tf.float32),
             tf.keras.layers.Dense(action_dim, activation="softmax")
         ])
         self.__actor.compile(optimizer=tf.keras.optimizers.Adam(learning_rate))
@@ -18,8 +19,9 @@ class ActorCritic(tf.keras.Model):
         # Defining the critic model
         self.__critic = tf.keras.models.Sequential([
             tf.keras.layers.Input(shape=input_shape, dtype=tf.float32),
-            tf.keras.layers.Dense(64, activation="tanh", dtype=tf.float32),  # TODO Evaluate relu
-            tf.keras.layers.Dense(64, activation="tanh", dtype=tf.float32),
+            tf.keras.layers.Dense(512, activation="relu", dtype=tf.float32),  # TODO Evaluate swish or gelu
+            tf.keras.layers.Dense(256, activation="relu", dtype=tf.float32),
+            tf.keras.layers.Dense(128, activation="relu", dtype=tf.float32),
             tf.keras.layers.Dense(1)
         ])
         self.__critic.compile(optimizer=tf.keras.optimizers.Adam(learning_rate))

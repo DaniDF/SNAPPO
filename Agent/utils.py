@@ -28,7 +28,7 @@ def save_policy(policy: ActorCritic, dir: str, only_weights = True):
         else:
             policy.save_critic_model_weights(os.path.join(path,new_filename))
             if not only_weights:
-                policy.save_actor_model(os.path.join(path,MODEL_FILENAME))
+                policy.save_critic_model(os.path.join(path,MODEL_FILENAME))
                 data_update[MODEL_CHECKPOINT_PATH_KEY] = MODEL_FILENAME
 
 

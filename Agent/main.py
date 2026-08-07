@@ -96,7 +96,7 @@ def main(
             os.makedirs(actor_dir_path, exist_ok=True)
             os.makedirs(critic_dir_path, exist_ok=True)
 
-            if iteration%10 == 9 and len(ckpt_dir) > 0:
+            if flag_save_policy and iteration > 10 and iteration%int(iteration/10) == 9:
                 if flag_save_policy:
                     utils.save_policy(policy, dir=ckpt_dir)
 
@@ -111,6 +111,7 @@ def play_game(log: logging.Logger, socket_path: str, agent: Agent, x_size: int, 
         conn.sendall(("{\"xMax\":" + f"{x_size}" + ",\"yMax\":" + f"{y_size}" + "}").encode())
 
         old_game_score = 0
+        old_apple_distance = 0
 
         flag_stop = False
         flag_first_board = True
@@ -120,29 +121,35 @@ def play_game(log: logging.Logger, socket_path: str, agent: Agent, x_size: int, 
             game = board.Unmarshal(data)
 
             if not game.gameover:
+                snake_head = game.snake[0]
+                apple_distance = math.sqrt(math.pow(snake_head.x - game.apple.x, 2) + math.pow(snake_head.y - game.apple.y, 2))
+
                 if flag_first_board:
                     flag_first_board = False
+                    old_apple_distance = apple_distance
                 else:
                     # TODO Think about giving rewards based on score difference instead of the current score (current_score - previews_score) to actually reward the model when it gets an apple
                     # Possible problems: getting an apple when the snake is 2 is the same as when it is 50, but the difficulty is much higher (future me problem)
-                    
-                    snake_head = game.snake[0]
-                    apple_distance = math.sqrt(math.pow(snake_head.x - game.apple.x, 2) + math.pow(snake_head.y - game.apple.y, 2))
 
+                    score = None
                     if game.get_score() == old_game_score:
-                        agent.reward(-apple_distance)
+                        score = -(apple_distance - old_apple_distance)
+                        log.debug(f"[Main] Agent reward for NO EATING: {score}")
                     else:
-                        score = game.get_score()
-                        agent.reward(score - old_game_score)
-                        old_game_score = score
-                    
+                        score = 10
+                        log.debug(f"[Main] Agent reward for EATING: {score}")
+
+                    agent.reward(score)
+
+                old_apple_distance = apple_distance
+                old_game_score = game.get_score()
 
                 move = agent.predict(game)
                 log.debug(f"[Main] Chose move: {move.name}")
                 conn.sendall(move.marshal().encode())
             else:
                 flag_stop = True
-                agent.reward(game.get_score(), is_terminal=True)
+                agent.reward(-10, is_terminal=True)
                 log.info("[Main] GAME OVER")
 
 

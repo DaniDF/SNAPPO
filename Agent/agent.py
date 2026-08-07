@@ -1,4 +1,3 @@
-import tensorflow as tf
 import numpy as np
 
 import board as b
@@ -24,7 +23,8 @@ class Agent:
         }
 
     def predict(self, board: b.Board) -> b.Move:
-        state = np.array(board.grid).ravel()
+        state = np.array(board.grid, dtype=np.float32).ravel()
+        state /= np.linalg.norm(state)
         action, log_prob, value = self.__policy.get_action(state=state)
     
         self.__memory["states"].append(state)
